@@ -1,0 +1,43 @@
+{
+  "Actions": [
+    {
+      "Icon": "action/images/actionimage",
+      "Name": "Talon Toggle",
+      "States": [
+        {
+          "Image": "action/images/speechOff",
+          "Name": "Off"
+        }, {
+          "Image": "action/images/speechOn",
+          "Name": "On"
+        }
+      ],
+      "Tooltip": "Enable or disable the speech engine for Talon",
+      "UUID": "io.github.jbarr21.talon.action"
+    }
+  ],
+  "SDKVersion": 2,
+  "Author": "@jbarr21",
+  "CodePath": "plugin.sh",
+  "CodePathWin": "plugin.bat",
+  "PropertyInspectorPath": "propertyinspector/index.html",
+  "Description": "Enable our disable the speech engine for Talon",
+  "Name": "Talon Toggle",
+  "Icon": "action/images/action",
+  "URL": "https://github.com/jbarr21/streamdeck-talon",
+  "Version": "1.0.0",
+  "OS": [
+    {
+        "Platform": "mac",
+        "MinimumVersion" : "10.11"
+    },
+    {
+        "Platform": "windows",
+        "MinimumVersion" : "10"
+    }
+  ],
+  "Software":
+    {
+        "MinimumVersion" : "4.1"
+  }
+}

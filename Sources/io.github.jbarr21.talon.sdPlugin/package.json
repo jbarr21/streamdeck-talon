@@ -1,0 +1,14 @@
+{
+  "name": "io.github.jbarr21.talon.sdPlugin",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {},
+  "keywords": [],
+  "author": "@jbarr21",
+  "license": "MIT",
+  "bin": "plugin.js",
+  "dependencies": {
+    "shelljs": "^0.8.4",
+    "ws": "^8.1.0"
+  }
+}
