@@ -2,34 +2,23 @@
 
 A [Stream Deck](https://www.elgato.com/en/stream-deck-mini) plugin for [Talon Voice](https://talonvoice.com) that allows for easily toggling the speech engine and showing the current status.
 
-## Building
+Talon Sleep
 
-In order to install the plugin from source:
+<img src="Images/talon-off.png" width="256">
 
-Close the Stream Deck app
-`killall 'Stream Deck'`
+Talon Wake
 
-Stop the Talon Toggle plugin
-`ps aux | grep -E "java -jar.*streamdeck-talon" | awk '{print $2}' | xargs kill -9`
+<img src="Images/talon-on.png" width="256">
 
-Uninstall the plugin from Stream Deck
-`rm -rf ~/Library/Application\ Support/com.elgato.StreamDeck/Plugins/io.github.jbarr21.talon.sdPlugin`
+## Installing
 
-Delete the existing plugin release
-`rm Release/io.github.jbarr21.talon.streamDeckPlugin`
+In order to use this Stream Deck plugin, you must first copy the [Mode Saver](https://github.com/jbarr21/talon-user/tree/main/plugin/mode_saver) knausj_talon plugin into your `talon-user` config.
 
-Build the Kotlin CLI jar
-```
-pushd Sources/io.github.jbarr21.talon.sdPlugin/plugin
-./gradlew clean build shadowJar
-popd
-```
+Then download the latest .streamDeckPlugin file and open it to install via the Stream Deck app.
 
-Package the plugin sources using [DistributionTool](https://docs.elgato.com/sdk/plugins/packaging)
-`DistributionTool -b -i Sources/io.github.jbarr21.talon.sdPlugin -o Release/`
+## Building from source
 
-Open Stream Deck and install the plugin
-`open Release/io.github.jbarr21.talon.streamDeckPlugin`
+You can build & install the plugin from source by running: `./install-from-source.sh`. Note: this script depends on [DistributionTool](https://docs.elgato.com/sdk/plugins/packaging) being on your PATH.
 
 Logs are viewable in:
 `~/streamdeck-plugin.{TODAYS_DATE_HERE}.log`
