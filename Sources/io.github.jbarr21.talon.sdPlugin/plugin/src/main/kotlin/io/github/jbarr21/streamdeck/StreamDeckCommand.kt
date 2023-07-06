@@ -6,9 +6,10 @@ import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.int
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.WebSocket
 import org.slf4j.LoggerFactory
@@ -29,11 +30,11 @@ class StreamDeckCommand(private val streamDeckPlugin: StreamDeckPlugin) : CliktC
     start()
   }
 
-  private fun start() = runBlocking {
-    logger.info("args: port=$port, uuid=$uuid, registerEvent=$registerEvent")
+  private fun start() = streamDeckPlugin.scope.launch(Dispatchers.IO) {
+    logger.info("start(port=$port, uuid=$uuid, registerEvent=$registerEvent)")
     client.webSocketEventFlow("ws://localhost:$port")
-      .onEach {
-        logger.info("socket msg type: ${it.javaClass.simpleName}")
+      .collect {
+        logger.info("received websocket msg type: ${it.javaClass.simpleName}")
         when (it) {
           is WebSocketEvent.Open -> onOpen(it.ws)
           is WebSocketEvent.Message -> onMessage(it.ws, it.message)
@@ -41,26 +42,33 @@ class StreamDeckCommand(private val streamDeckPlugin: StreamDeckPlugin) : CliktC
           is WebSocketEvent.Close -> onClose()
         }
       }
-      .launchIn(this)
   }
 
   private fun onOpen(ws: WebSocket) {
-    logger.info("opened ws")
-    ws.send(moshi.adapter(RegisterEvent::class.java).toJson(RegisterEvent(registerEvent, uuid)))
+    val registerEvent = RegisterEvent(registerEvent, uuid)
+    val registerJson = moshi.adapter(RegisterEvent::class.java).toJson(registerEvent)
+    ws.send(registerJson)
     logger.info("registered")
   }
 
   private fun onMessage(ws: WebSocket, message: String) {
-    logger.info("received msg")
     moshi.adapter(MessageEvent::class.java).fromJson(message)?.let {
       logger.info("event: ${it.event}")
       val context = it.context.orEmpty()
       when (it.event) {
+        "deviceDidConnect" -> streamDeckPlugin.onDeviceDidConnect(ws, context)
         "willAppear" -> streamDeckPlugin.onWillAppear(ws, context)
+        "keyDown" -> streamDeckPlugin.onKeyDown(ws, context)
         "keyUp" -> streamDeckPlugin.onKeyUp(ws, context)
         "willDisappear" -> streamDeckPlugin.onWillDisappear(ws, context)
+        "deviceDidDisconnect" -> streamDeckPlugin.onDeviceDidDisconnect(ws, context)
+        "systemDidWakeUp" -> streamDeckPlugin.onSystemDidWakeUp(ws, context)
       }
-    } ?: throw IllegalStateException("Could not parse json for message")
+    } ?: run {
+      val e = IllegalStateException("Could not parse json for message")
+      logger.error("Could not parse json for message: $message", e)
+      throw e
+    }
   }
 
   private fun onFailure(t: Throwable) {

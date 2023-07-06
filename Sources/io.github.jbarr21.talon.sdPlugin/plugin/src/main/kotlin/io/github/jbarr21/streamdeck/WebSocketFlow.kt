@@ -1,16 +1,16 @@
 package io.github.jbarr21.streamdeck
 
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.channels.sendBlocking
 import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
-import okhttp3.WebSocket
-import okhttp3.WebSocketListener
+import okhttp3.*
 import okio.ByteString
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
+internal val OkHttpClient.logger: Logger
+  get() = LoggerFactory.getLogger(WebSocket::class.java.simpleName)
 
 internal fun OkHttpClient.webSocketEventFlow(url: String): Flow<WebSocketEvent> = callbackFlow {
   val webSocketListener = object : WebSocketListener() {
@@ -36,7 +36,9 @@ internal fun OkHttpClient.webSocketEventFlow(url: String): Flow<WebSocketEvent> 
   }
 
   val ws = newWebSocket(Request.Builder().url(url).build(), webSocketListener)
-  awaitClose { ws.cancel() }
+  awaitClose {
+    ws.cancel()
+  }
 }
 
 sealed class WebSocketEvent {

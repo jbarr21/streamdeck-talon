@@ -5,11 +5,17 @@
       "Name": "Talon Toggle",
       "States": [
         {
-          "Image": "action/images/speechOff",
-          "Name": "Off"
+          "Image": "action/images/sleep",
+          "Name": "Sleep"
         }, {
-          "Image": "action/images/speechOn",
-          "Name": "On"
+          "Image": "action/images/command",
+          "Name": "Command"
+        }, {
+          "Image": "action/images/dictation",
+          "Name": "Dictation"
+        }, {
+          "Image": "action/images/mixed",
+          "Name": "Mixed"
         }
       ],
       "Tooltip": "Enable or disable the speech engine for Talon",
@@ -25,7 +31,7 @@
   "Name": "Talon Toggle",
   "Icon": "action/images/action",
   "URL": "https://github.com/jbarr21/streamdeck-talon",
-  "Version": "1.0.0",
+  "Version": "1.0.1",
   "OS": [
     {
         "Platform": "mac",

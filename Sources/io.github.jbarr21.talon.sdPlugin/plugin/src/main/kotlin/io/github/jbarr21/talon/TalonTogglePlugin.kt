@@ -3,52 +3,90 @@ package io.github.jbarr21.talon
 import com.github.andrewoma.kommon.script.shell
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import io.github.irgaly.kfswatch.KfsDirectoryWatcher
 import io.github.jbarr21.streamdeck.EventPayload
 import io.github.jbarr21.streamdeck.SetStateEvent
 import io.github.jbarr21.streamdeck.StreamDeckPlugin
-import kotlinx.coroutines.*
+import io.github.jbarr21.streamdeck.TalonState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import okhttp3.WebSocket
 import org.slf4j.LoggerFactory
+import java.io.File
 
-class TalonTogglePlugin : StreamDeckPlugin {
+class TalonTogglePlugin(scope: CoroutineScope) : StreamDeckPlugin(scope) {
 
   private val talonRepl = "${System.getenv("HOME")}/.talon/bin/repl"
-  private val logger = LoggerFactory.getLogger(TalonTogglePlugin::class.java.simpleName)
-  private val moshi = Moshi.Builder()
-    .add(KotlinJsonAdapterFactory())
-    .build()
-
-  private var intervalJob: Job? = null
+  private val talonModeFile = File("${System.getenv("HOME")}/.talon/talon.mode")
+  private val logger by lazy { LoggerFactory.getLogger(TalonTogglePlugin::class.java.simpleName) }
+  private val watcher by lazy { KfsDirectoryWatcher(scope, Dispatchers.IO) }
+  private val moshi by lazy {
+    Moshi.Builder()
+      .add(KotlinJsonAdapterFactory())
+      .build()
+  }
 
   override fun onWillAppear(ws: WebSocket, context: String) {
-    CoroutineScope(Dispatchers.IO).launchPeriodicAsync(1000L) {
-      setState(ws, context, if (isTalonEnabled()) 1 else 0)
+    setState(ws, context, TalonState.fromFile(talonModeFile))
+    scope.launch(Dispatchers.IO) {
+      watchTalonMode(ws, context)
     }
   }
 
+  private suspend fun watchTalonMode(ws: WebSocket, context: String) {
+    if (watcher.watchingDirectories.isEmpty()) {
+      watcher.add(talonModeFile.parentFile.absolutePath)
+    }
+    watcher.onEventFlow
+      .filter { it.path.endsWith(talonModeFile.name) }
+      .map { TalonState.fromFile(talonModeFile) }
+      .distinctUntilChanged()
+      .collect { state ->
+        setState(ws, context, state)
+      }
+  }
+
   override fun onKeyUp(ws: WebSocket, context: String) {
-    val enabled = toggleTalon()
-    setState(ws, context, if (enabled) 1 else 0)
+    logger.info("toggle button pressed")
+    toggleTalon()
+    val state = talonState()
+    logger.info("new talon state is = $state")
+    setState(ws, context, state)
   }
 
-  override fun onWillDisappear(ws: WebSocket, context: String) {
-    intervalJob?.cancel()
-  }
+  override fun onWillDisappear(ws: WebSocket, context: String) { }
 
-  private fun setState(ws: WebSocket, context: String, state: Int) {
-    logger.info("set state $state")
+  private fun setState(ws: WebSocket, context: String, state: TalonState) {
+    logger.info("setting state to $state")
+    val setStateEvent = SetStateEvent("setState", context, EventPayload(state.ordinal))
     moshi.adapter(SetStateEvent::class.java)
-      .toJson(SetStateEvent("setState", context, EventPayload(state)))
+      .toJson(setStateEvent)
       .also { ws.send(it) }
-    logger.info("set state $state success")
   }
 
-  private fun isTalonEnabled(): Boolean {
+  private fun talonState(): TalonState {
     val script = """
-        |int(actions.speech.enabled())
+        |from talon import actions
+        |
+        |modes = scope.get("mode")
+        |if "sleep" in modes:
+        |    print(${TalonState.SLEEP.ordinal})
+        |elif "dictation" in modes:
+        |    if "command" in modes:
+        |        print(${TalonState.MIXED.ordinal})
+        |    else:
+        |        print(${TalonState.DICTATION.ordinal})
+        |elif "command" in modes:
+        |    print(${TalonState.COMMAND.ordinal})
+        |
         |quit()
         """.trimMargin()
-    return runTalonReplScript(script)
+    val output = runTalonReplScript(script)
+    return TalonState.values()[output]
   }
 
   private fun toggleTalon(): Boolean {
@@ -63,30 +101,22 @@ class TalonTogglePlugin : StreamDeckPlugin {
         |
         |speech_enabled = not speech_enabled
         |print(int(speech_enabled))
+        |
         |quit()
         """.trimMargin()
-    return runTalonReplScript(script)
+    val output = runTalonReplScript(script)
+    logger.info("toggleTalon: speech is = $output")
+    return output > 0
   }
 
-  private fun runTalonReplScript(script: String): Boolean {
+  private fun runTalonReplScript(script: String): Int {
     return shell("echo '$script' | $talonRepl", verify = { true }).out
       .lines()
       .filterNot { "REPL" in it }
       .first()
       .trim()
-      .toInt() > 0
+      .toInt()
   }
 }
 
-fun CoroutineScope.launchPeriodicAsync(delayMillis: Long, action: () -> Unit): Job {
-  return async {
-    if (delayMillis > 0) {
-      while (isActive) {
-        action()
-        delay(delayMillis)
-      }
-    } else {
-      action()
-    }
-  }
-}
+
